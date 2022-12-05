@@ -1,3 +1,4 @@
+
 """
 Trainers
 ========
@@ -9,6 +10,6 @@ Inspired by pytorch-lightning.
 
 """
 
-from dro_sfm.trainers.horovod_trainer import HorovodTrainer
+# from dro_sfm.trainers.horovod_trainer import HorovodTrainer
 
-__all__ = ["HorovodTrainer"]
+# __all__ = ["HorovodTrainer"]

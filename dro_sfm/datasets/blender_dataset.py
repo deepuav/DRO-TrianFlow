@@ -43,6 +43,10 @@ def read_npz_depth(file, depth_type):
     """Reads a .npz depth map given a certain depth_type."""
     depth = np.load(file)[depth_type + '_depth'].astype(np.float32)
     return np.expand_dims(depth, axis=2)
+def read_npy_depth(file):
+    """Reads a .npz depth map given a certain depth_type."""
+    depth = np.load(file).astype(np.float32)
+    return np.expand_dims(depth, axis=2)
 
 def read_png_depth(file):
     """Reads a .png depth map."""
@@ -65,8 +69,8 @@ def collate_fn(batch):
 #### DATASET
 ########################################################################################################################
 
-class ScannetDataset(Dataset):
-    def __init__(self, root_dir, split, data_transform=None,
+class BlenderDataset(Dataset):
+    def __init__(self, root_dir, data_transform=None,
                  forward_context=0, back_context=0, strides=(1,),
                  depth_type=None, **kwargs):
         super().__init__()
@@ -79,8 +83,6 @@ class ScannetDataset(Dataset):
         self.depth_type = depth_type
         self.with_depth = depth_type is not '' and depth_type is not None
         self.root_dir = root_dir
-        self.split = split
-
         self.backward_context = back_context
         self.forward_context = forward_context
         self.has_context = self.backward_context + self.forward_context > 0
@@ -98,10 +100,6 @@ class ScannetDataset(Dataset):
         # for k in self.file_tree:
         #     self.file_tree[k] = self.file_tree[k][::5]
 
-        for k, v in self.file_tree.items():
-            file_list = v
-            files = [fname for fname in file_list if self._has_context(k, fname, file_list)]
-            self.files.extend([[k, fname] for fname in files])
 
         files = [fname for fname in self.file_tree if self._has_context(fname, file_list=self.file_tree)]
         self.files = files
@@ -141,7 +139,8 @@ class ScannetDataset(Dataset):
     def _read_depth(self, depth_file):
         """Get the depth map from a file."""
         if self.depth_type in ['velodyne']:
-            return read_npz_depth(depth_file, self.depth_type)
+            # return read_npz_depth(depth_file, self.depth_type)
+            return read_npy_depth(depth_file)
         elif self.depth_type in ['groundtruth']:
             return read_png_depth(depth_file)
         else:
@@ -162,7 +161,7 @@ class ScannetDataset(Dataset):
 
     def __getitem__(self, idx):
         filename = self.files[idx]
-        image = self._read_rgb_file('imgaes',filename)
+        image = self._read_rgb_file('images',filename)
 
         if self.with_depth:
             depth = self._read_depth(self._get_depth_file('depth', filename))

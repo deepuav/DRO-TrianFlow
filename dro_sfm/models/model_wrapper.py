@@ -639,12 +639,12 @@ def setup_dataset(config, mode, requirements, **kwargs):
             )
 
         # Scannet dataset
-        elif config.dataset[i] == 'ScannetTestMF':
-            from dro_sfm.datasets.scannet_test_dataset_mf import ScannetTestDataset
-            dataset = ScannetTestDataset(
-                config.path[i], config.split[i],
-                **dataset_args, **dataset_args_i,
-            )
+        # elif config.dataset[i] == 'ScannetTestMF':
+        #     from dro_sfm.datasets.scannet_test_dataset_mf import ScannetTestDataset
+        #     dataset = ScannetTestDataset(
+        #         config.path[i], config.split[i],
+        #         **dataset_args, **dataset_args_i,
+        #     )
             
         # Scannet banet dataset
         elif config.dataset[i] == 'ScannetBA':
@@ -674,6 +674,12 @@ def setup_dataset(config, mode, requirements, **kwargs):
         elif config.dataset[i] == 'Image':
             from dro_sfm.datasets.image_dataset import ImageDataset
             dataset = ImageDataset(
+                config.path[i], config.split[i],
+                **dataset_args, **dataset_args_i,
+            )
+        elif config.dataset[i] == 'Blender':
+            from dro_sfm.datasets.blender_dataset import BlenderDataset
+            dataset = BlenderDataset(
                 config.path[i], config.split[i],
                 **dataset_args, **dataset_args_i,
             )
