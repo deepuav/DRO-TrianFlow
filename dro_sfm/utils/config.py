@@ -279,7 +279,7 @@ def prepare_train_config(config):
     assert config.wandb.dry_run or config.wandb.project is not '', \
         'You need a wandb project'
     assert config.checkpoint.filepath is '' or \
-           (config.checkpoint.monitor_index < len(config.datasets.validation.split)), \
+           (config.checkpoint.monitor_index < len(config.datasets.validation.path)), \
         'You need to monitor a valid dataset'
 
     # Prepare datasets

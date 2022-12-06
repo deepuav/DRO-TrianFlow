@@ -34,25 +34,25 @@ datasets:
         image_shape: (320, 320)
     train:
         batch_size: 12
-        dataset: ['ScannetBA']
-        path: ['/data/datasets/scannet/train']
-        split: ['splits/train_all_list.txt']
-        depth_type: ['groundtruth']
+        dataset: ['Blender']
+        path: ['E:/DataSet/blender/test']
+        split: ['']
+        depth_type: ['velodyne']
         repeat: [1]
         forward_context: 1
         back_context: 0
-        num_workers: 32
+        num_workers: 1
     validation:
-        dataset: ['ScannetTest']
-        path: ['/data/datasets/scannet/test']
-        split: ['splits/test_split.txt']
-        depth_type: ['groundtruth']
+        dataset: ['Blender']
+        path: ['E:/DataSet/blender/test']
+        split: ['']
+        depth_type: ['velodyne']
         forward_context: 1
-        back_context: 0
+        back_context: 1
     test:
-        dataset: ['ScannetTest']
-        path: ['/data/datasets/scannet/test']
-        split: ['splits/test_split.txt']
-        depth_type: ['groundtruth']
+        dataset: ['Blender']
+        path: ['E:/DataSet/blender/test']
+        split: ['']
+        depth_type: ['velodyne']
         forward_context: 1
         back_context: 0

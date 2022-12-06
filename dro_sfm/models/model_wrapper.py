@@ -680,7 +680,7 @@ def setup_dataset(config, mode, requirements, **kwargs):
         elif config.dataset[i] == 'Blender':
             from dro_sfm.datasets.blender_dataset import BlenderDataset
             dataset = BlenderDataset(
-                config.path[i], config.split[i],
+                config.path[i],
                 **dataset_args, **dataset_args_i,
             )
         else:
@@ -738,7 +738,6 @@ def setup_dataloader(datasets, config, mode):
     """
     return [(DataLoader(dataset,
                         batch_size=config.batch_size, shuffle=False,
-                        pin_memory=True, num_workers=config.num_workers,
-                        worker_init_fn=worker_init_fn,
-                        sampler=get_datasampler(dataset, mode))
+                        pin_memory=True, num_workers=config.num_workers
+                        )
              ) for dataset in datasets]

@@ -1,0 +1,16 @@
+{
+  "configurations": [
+    {
+      "name": "train.py",
+      "type": "python",
+      "request": "launch",
+      "program": "./scripts/train.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+              "./configs/train_blender.yaml",
+
+      ]
+    }
+  ]
+}

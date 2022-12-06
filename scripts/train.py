@@ -6,11 +6,13 @@ sys.path.append(lib_dir)
 import argparse
 from dro_sfm.models.model_wrapper import ModelWrapper
 from dro_sfm.models.model_checkpoint import ModelCheckpoint
-from dro_sfm.trainers.horovod_trainer import HorovodTrainer
+from dro_sfm.trainers.dro_trainer import DROTrainer
 from dro_sfm.utils.config import parse_train_file
 from dro_sfm.utils.load import set_debug, filter_args_create
-from dro_sfm.utils.horovod import hvd_init, rank
+# from dro_sfm.utils.horovod import hvd_init, rank
 from dro_sfm.loggers import WandbLogger
+from dro_sfm.trainers.DepthPose import DepthPose
+
 
 
 def parse_args():
@@ -36,7 +38,7 @@ def train(file, config):
         **.ckpt** for a pre-trained checkpoint file.
     """
     # Initialize horovod
-    hvd_init()
+    # hvd_init()
 
     # Produce configuration and checkpoint from filename
     config, ckpt = parse_train_file(file, config)
@@ -45,21 +47,23 @@ def train(file, config):
     set_debug(config.debug)
 
     # Wandb Logger
-    logger = None if config.wandb.dry_run or rank() > 0 \
+    logger = None if config.wandb.dry_run > 0 \
         else filter_args_create(WandbLogger, config.wandb)
-
+   
     # model checkpoint
-    checkpoint = None if config.checkpoint.filepath is '' or rank() > 0 else \
+    checkpoint = None if config.checkpoint.filepath is ''  else \
         filter_args_create(ModelCheckpoint, config.checkpoint)
 
     # Initialize model wrapper
     model_wrapper = ModelWrapper(config, resume=ckpt, logger=logger)
-
+    model = DepthPose(model_wrapper)
     # Create trainer with args.arch parameters
-    trainer = HorovodTrainer(**config.arch, checkpoint=checkpoint)
+    trainer = DROTrainer(**config.arch, checkpoint=checkpoint)
 
     # Train model
     trainer.fit(model_wrapper)
+
+  
 
 
 if __name__ == '__main__':
