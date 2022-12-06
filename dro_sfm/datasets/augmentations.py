@@ -213,13 +213,17 @@ def colorjitter_sample(sample, parameters, prob=1.0):
     """
     if random.random() < prob:
         # Prepare transformation
-        color_augmentation = transforms.ColorJitter()
         brightness, contrast, saturation, hue = parameters
-        augment_image = color_augmentation.get_params(
-            brightness=[max(0, 1 - brightness), 1 + brightness],
+        augment_image = transforms.ColorJitter(brightness=[max(0, 1 - brightness), 1 + brightness],
             contrast=[max(0, 1 - contrast), 1 + contrast],
             saturation=[max(0, 1 - saturation), 1 + saturation],
             hue=[-hue, hue])
+        
+        # augment_image = color_augmentation.get_params(
+        #     brightness=[max(0, 1 - brightness), 1 + brightness],
+        #     contrast=[max(0, 1 - contrast), 1 + contrast],
+        #     saturation=[max(0, 1 - saturation), 1 + saturation],
+        #     hue=[-hue, hue])
         # Jitter single items
         for key in filter_dict(sample, [
             'rgb'

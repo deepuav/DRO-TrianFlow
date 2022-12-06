@@ -63,7 +63,7 @@ def train(file, config):
     # Train model
     trainer.fit(model_wrapper)
 
-  
+
 
 
 if __name__ == '__main__':

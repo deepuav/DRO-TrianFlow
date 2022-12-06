@@ -39,7 +39,7 @@ class DROTrainer():
         module.configure_optimizers()
 
 
-        optimizer = module.optimizer,
+        optimizer = module.optimizer
         scheduler = module.scheduler
 
         # Get train and val dataloaders
@@ -87,11 +87,11 @@ class DROTrainer():
             output['loss'] = output['loss'].detach()
             outputs.append(output)
             # Update progress bar if in rank 0
-            if self.is_rank_0:
-                progress_bar.set_description(
-                    'Epoch {} | Avg.Loss {:.4f} Loss2 {:.4f}'.format(
-                        module.current_epoch, self.avg_loss(output['loss'].item()),
-                        self.avg_loss2(output['metrics']['pose_loss'].item() if 'pose_loss' in output['metrics'] else 0.0)))
+            
+            progress_bar.set_description(
+                'Epoch {} | Avg.Loss {:.4f} Loss2 {:.4f}'.format(
+                    module.current_epoch, self.avg_loss(output['loss'].item()),
+                    self.avg_loss2(output['metrics']['pose_loss'].item() if 'pose_loss' in output['metrics'] else 0.0)))
         # Return outputs for epoch end
         # return module.training_epoch_end(outputs)
 
@@ -116,7 +116,7 @@ class DROTrainer():
             # Append dataset outputs to list of all outputs
             all_outputs.append(outputs)
         # Return all outputs for epoch end
-        return module.validation_epoch_end(all_outputs)
+        return all_outputs
 
     def test(self, module):
         # Send module to GPU
