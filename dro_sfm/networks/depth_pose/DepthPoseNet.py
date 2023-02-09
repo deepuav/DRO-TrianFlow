@@ -2,6 +2,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from dro_sfm.networks.optim.update import BasicUpdateBlockPose, BasicUpdateBlockDepth
 from dro_sfm.networks.optim.update import DepthHead, PoseHead, UpMaskNet
@@ -10,6 +11,8 @@ from dro_sfm.networks.optim.extractor import ResNetEncoder
 from dro_sfm.geometry.camera import Camera, Pose
 from dro_sfm.utils.depth import inv2depth
 from dro_sfm.networks.layers.resnet.layers import disp_to_depth
+from dro_sfm.networks.model_depth_pose import Model_depth_pose
+from dro_sfm.networks.layers.feature_pyramid import FeaturePyramid
 
                 
 class DepthPoseNet(nn.Module):
@@ -41,10 +44,12 @@ class DepthPoseNet(nn.Module):
         # feature network, context network, and update block
         self.foutput_dim = 128
         self.feat_ratio = 8
-        self.fnet = ResNetEncoder(out_chs=self.foutput_dim, stride=self.feat_ratio)
-    
-        self.depth_head = DepthHead(input_dim=self.foutput_dim, hidden_dim=self.foutput_dim, scale=False)
-        self.pose_head = PoseHead(input_dim=self.foutput_dim * 2, hidden_dim=self.foutput_dim)
+        # TODO
+        # 输出维度作为参数传入， 网络返回结果有该输出维度的特征
+        self.fnet = FeaturePyramid()
+
+        self.depth_pose_head = Model_depth_pose()
+
         self.upmask_net = UpMaskNet(hidden_dim=self.foutput_dim, ratio=self.feat_ratio)
         
         self.hdim = 128 if self.is_high else 64
@@ -53,9 +58,11 @@ class DepthPoseNet(nn.Module):
         self.update_block_depth = BasicUpdateBlockDepth(hidden_dim=self.hdim, cost_dim=self.foutput_dim, ratio=self.feat_ratio, context_dim=self.cdim)
         self.update_block_pose = BasicUpdateBlockPose(hidden_dim=self.hdim, cost_dim=self.foutput_dim, context_dim=self.cdim)
 
-        self.cnet = ResNetEncoder(out_chs=self.foutput_dim, stride=self.feat_ratio)
-        self.cnet_depth = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=1)
-        self.cnet_pose = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=2)
+        # self.cnet_depth = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=1)
+        # self.cnet_pose = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=2)
+
+        self.cnet_depth = FeaturePyramid()
+        self.cnet_pose = FeaturePyramid()
 
 
     def upsample_depth(self, depth, mask, ratio=8):
@@ -105,22 +112,31 @@ class DepthPoseNet(nn.Module):
     def forward(self, target_image, ref_imgs, intrinsics):
         """ Estimate inv depth and  poses """
         # run the feature network
-        fmaps = self.fnet(torch.cat([target_image] + ref_imgs, dim=0))
-        fmaps = torch.split(fmaps, [target_image.shape[0]] * (1 + len(ref_imgs)), dim=0)
-        fmap1, fmaps_ref = fmaps[0], fmaps[1:]
-        assert target_image.shape[2] / fmap1.shape[2] == self.feat_ratio
-            
-        # initial pose
-        pose_list_init = []
-        for fmap_ref in fmaps_ref:
-            pose_list_init.append(self.pose_head(torch.cat([fmap1, fmap_ref], dim=1)))   
-        
-        # initial depth
-        inv_depth_init = self.depth_head(fmap1, act_fn=F.sigmoid)
-        up_mask = self.upmask_net(fmap1)
-        inv_depth_up_init = self.upsample_depth(inv_depth_init, up_mask, ratio=self.feat_ratio)
+        K = intrinsics[:3,:3].cuda()
+        K_inv = np.linalg.inv(intrinsics[:3,:3]).cuda()
 
-        inv_depth_predictions = [self.scale_inv_depth(inv_depth_up_init)[0]]
+        fmaps_target = self.fnet(target_image)  # fmaps 是6个尺度的特征列表
+        fmaps_ref = []
+        for img in ref_imgs:
+            fmaps_ref.append(self.fnet(img))
+        # assert target_image.shape[2] / fmap1.shape[2] == self.feat_ratio
+
+
+        # 初始化深度和位姿
+        depth_list_init = []
+        pose_list_init = []
+        for ref_img, fmap_ref in zip(ref_imgs, fmaps_ref):
+            _, depth1, depth2, pose = self.depth_pose_head([target_image, ref_img, K, K_inv], [fmaps_target, fmap_ref])
+            depth_list_init.append(depth1)
+            pose_list_init.append(pose)
+            
+        # inv_depth_up_init = self.upsample_depth(inv_depth_init, up_mask, ratio=self.feat_ratio)
+
+        # TODO
+        # 三角变换出来的稀疏深度，尺度不确定，是否进行缩放待定
+        inv_depth_init = depth_list_init[0]
+
+        inv_depth_predictions = [self.scale_inv_depth(depth_list_init[0])[0]]
         pose_predictions = [[pose.clone() for pose in pose_list_init]]
         
         

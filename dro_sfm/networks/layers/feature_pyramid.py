@@ -1,3 +1,4 @@
+
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from net_utils import conv
@@ -19,6 +20,11 @@ class FeaturePyramid(nn.Module):
         self.conv10 = conv(128, 128, kernel_size=3, stride=1)
         self.conv11 = conv(128, 196, kernel_size=3, stride=2)
         self.conv12 = conv(196, 196, kernel_size=3, stride=1)
+
+        # state_dict = torch.load('weights/kitti_flow.pth')['model_state_dict']
+        # self.load_state_dict(state_dict['model_pose.model_flow.fpyramid'], strict=False)
+        
+
         '''
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):

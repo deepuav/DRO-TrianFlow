@@ -73,18 +73,24 @@ class Model_triangulate_pose(nn.Module):
         
         return F_final, img1_valid_mask, img1_rigid_mask.permute(0,3,1,2), fwd_flow, match
 
-    def forward(self, inputs, output_F=False, visualizer=None):
-        images, K_ms, K_inv_ms = inputs
+    def forward(self, inputs, features, output_F=False, visualizer=None):
+        # images, K_ms, K_inv_ms = inputs
+        # K, K_inv = K_ms[:,0,:,:], K_inv_ms[:,0,:,:]
+        # assert (images.shape[1] == 3)
+        # img_h, img_w = int(images.shape[2] / 2), images.shape[3] 
+        # img1, img2 = images[:,:,:img_h,:], images[:,:,img_h:,:]
+        # batch_size = img1.shape[0]
+
+        img1, img2, K_ms, K_inv_ms = inputs
         K, K_inv = K_ms[:,0,:,:], K_inv_ms[:,0,:,:]
-        assert (images.shape[1] == 3)
-        img_h, img_w = int(images.shape[2] / 2), images.shape[3] 
-        img1, img2 = images[:,:,:img_h,:], images[:,:,img_h:,:]
+        assert (img1.shape[1] == 3)
+        img_h, img_w = img1.shape[2], img2.shape[3] 
         batch_size = img1.shape[0]
 
         if self.mode == 'depth':
-            loss_pack, fwd_flow, bwd_flow, img1_valid_mask, img2_valid_mask, img1_flow_diff_mask, img2_flow_diff_mask = self.model_flow(inputs, output_flow=True, use_flow_loss=False)
+            loss_pack, fwd_flow, bwd_flow, img1_valid_mask, img2_valid_mask, img1_flow_diff_mask, img2_flow_diff_mask = self.model_flow(inputs,features, output_flow=True, use_flow_loss=False)
         else:
-            loss_pack, fwd_flow, bwd_flow, img1_valid_mask, img2_valid_mask, img1_flow_diff_mask, img2_flow_diff_mask = self.model_flow(inputs, output_flow=True)
+            loss_pack, fwd_flow, bwd_flow, img1_valid_mask, img2_valid_mask, img1_flow_diff_mask, img2_flow_diff_mask = self.model_flow(inputs,features, output_flow=True)
         
         grid = self.meshgrid(img_h, img_w).float().to(img1.get_device()).unsqueeze(0).repeat(batch_size,1,1,1) #[b,2,h,w]
         

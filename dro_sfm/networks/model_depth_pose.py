@@ -1,7 +1,7 @@
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from model_triangulate_pose import Model_triangulate_pose
-from utils.ssim import SSIM
+from dro_sfm.utils.ssim import SSIM
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'visualize'))
 from visualize.visualizer import *
 import torch
@@ -449,20 +449,19 @@ class Model_depth_pose(nn.Module):
         return fwd_flow, Rt, point2d_1_coord, point2d_1_depth
     
 
-    def forward(self, inputs):
+    def forward(self, inputs, features):
         # initialization
-        images, K_ms, K_inv_ms = inputs
+        img1, img2, K_ms, K_inv_ms = inputs
         K, K_inv = K_ms[:,0,:,:], K_inv_ms[:,0,:,:]
-        assert (images.shape[1] == 3)
-        img_h, img_w = int(images.shape[2] / 2), images.shape[3] 
-        img1, img2 = images[:,:,:img_h,:], images[:,:,img_h:,:]
+        assert (img1.shape[1] == 3)
+        img_h, img_w = img1.shape[2], img2.shape[3] 
         b = img1.shape[0]
         flag1, flag2, flag3 = 0, 0, 0
         visualizer = Visualizer_debug('./vis/', img1=255*img1.permute([0,2,3,1]).detach().cpu().numpy(), \
             img2=255*img2.permute([0,2,3,1]).detach().cpu().numpy())
         
         # Pose Network
-        loss_pack, F_final, img1_valid_mask, img1_rigid_mask, fwd_flow, fwd_match = self.model_pose(inputs, output_F=True, visualizer=visualizer)
+        loss_pack, F_final, img1_valid_mask, img1_rigid_mask, fwd_flow, fwd_match = self.model_pose(inputs, features, output_F=True, visualizer=visualizer)
 
         # Get masks
         img1_depth_mask = img1_rigid_mask * img1_valid_mask

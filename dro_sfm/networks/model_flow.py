@@ -3,7 +3,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from layers.feature_pyramid import FeaturePyramid
 from layers.pwc_tf import PWC_tf
 from layers.net_utils import *
-from utils.ssim import SSIM
+from dro_sfm.utils.ssim import SSIM
 
 import torch
 import torch.nn as nn
@@ -154,12 +154,12 @@ def transformerFwd(U,
 class Model_flow(nn.Module):
     def __init__(self, cfg):
         super(Model_flow, self).__init__()
-        self.fpyramid = FeaturePyramid()
+        # self.fpyramid = FeaturePyramid()
         self.pwc_model = PWC_tf()
         if cfg.mode == 'depth' or cfg.mode == 'flowposenet':
-            # Stage 2 training
-            for param in self.fpyramid.parameters():
-                param.requires_grad = False
+            # # Stage 2 training
+            # for param in self.fpyramid.parameters():
+            #     param.requires_grad = False
             for param in self.pwc_model.parameters():
                 param.requires_grad = False
         
@@ -168,6 +168,8 @@ class Model_flow(nn.Module):
         self.num_scales = cfg.num_scales
         self.flow_consist_alpha = cfg.h_flow_consist_alpha
         self.flow_consist_beta = cfg.h_flow_consist_beta
+        # state_dict = torch.load('weights/kitti_flow.pth')
+        # self.load_state_dict(state_dict['model_pose.model_flow'], strict=False)
 
     def get_occlusion_mask_from_flow(self, tensor_size, flow):
         mask = torch.ones(tensor_size).to(flow.get_device())
@@ -319,18 +321,27 @@ class Model_flow(nn.Module):
         
         return optical_flows[0], optical_flows_rev[0], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
 
-    def forward(self, inputs, output_flow=False, use_flow_loss=True):
-        images, K_ms, K_inv_ms = inputs
-        assert (images.shape[1] == 3)
-        img_h, img_w = int(images.shape[2] / 2), images.shape[3] 
-        img1, img2 = images[:,:,:img_h,:], images[:,:,img_h:,:]
+    def forward(self, inputs, features, output_flow=False, use_flow_loss=True):
+        # 多尺度特征直接作为光流的输入
+        feature_list_1, feature_list_2 = features
+
+        # images, K_ms, K_inv_ms, = inputs
+        # assert (images.shape[1] == 3)
+        # img_h, img_w = int(images.shape[2] / 2), images.shape[3] 
+        # img1, img2 = images[:,:,:img_h,:], images[:,:,img_h:,:]
+        # batch_size = img1.shape[0]
+
+        img1, img2, K_ms, K_inv_ms = inputs
+        K, K_inv = K_ms[:,0,:,:], K_inv_ms[:,0,:,:]
+        assert (img1.shape[1] == 3)
+        img_h, img_w = img1.shape[2], img2.shape[3] 
         batch_size = img1.shape[0]
 
         #cv2.imwrite('./test1.png', np.transpose(255*img1[0].cpu().detach().numpy(), [1,2,0]).astype(np.uint8))
         #cv2.imwrite('./test2.png', np.transpose(255*img2[0].cpu().detach().numpy(), [1,2,0]).astype(np.uint8))
         #pdb.set_trace()
         # get the optical flows and reverse optical flows for each pair of adjacent images
-        feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
+        # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
         optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
         optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
         
