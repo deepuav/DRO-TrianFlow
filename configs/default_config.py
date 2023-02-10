@@ -125,6 +125,29 @@ cfg.model.pose_net.checkpoint_path = ''     # Pose checkpoint filepath
 cfg.model.pose_net.version = ''             # Pose network version
 cfg.model.pose_net.dropout = 0.0            # Pose network dropout
 ########################################################################################################################
+### MODEL.FLOW_NET
+########################################################################################################################
+cfg.model.flow_net = CN()
+cfg.model.flow_net.mode = '' 
+cfg.model.flow_net.dataset = '' 
+cfg.model.flow_net.depth_match_num = 0     
+cfg.model.flow_net.num_scales = 0       
+cfg.model.flow_net.depth_sample_ratio = 0.0     
+cfg.model.flow_net.depth_scale = 0           
+cfg.model.flow_net.w_ssim = 0.0
+cfg.model.flow_net.w_flow_smooth = 0.0          
+cfg.model.flow_net.w_flow_consis = 0.0           
+cfg.model.flow_net.w_geo = 0.0           
+cfg.model.flow_net.w_pt_depth = 0.0           
+cfg.model.flow_net.w_pj_depth = 0.0           
+cfg.model.flow_net.w_flow_error = 0.0 
+cfg.model.flow_net.w_depth_smooth = 0.0           
+cfg.model.flow_net.h_flow_consist_alpha = 0.0           
+cfg.model.flow_net.h_flow_consist_beta = 0.0           
+cfg.model.flow_net.ransac_iters = 0           
+cfg.model.flow_net.ransac_points = 0           
+
+########################################################################################################################
 ### MODEL.perpcep_net
 ########################################################################################################################
 cfg.model.percep_net = CN()

@@ -408,7 +408,7 @@ def set_random_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def setup_depth_net(config, prepared, **kwargs):
+def setup_depth_net(flownet_cfg, config, prepared, **kwargs):
     """
     Create a depth network
 
@@ -426,11 +426,15 @@ def setup_depth_net(config, prepared, **kwargs):
     depth_net : nn.Module
         Create depth network
     """
-    print0(pcolor('DepthNet: %s' % config.name, 'yellow'))
-    depth_net = load_class_args_create(config.name,
-        paths=['dro_sfm.networks.depth_pose',],
-        args={**config, **kwargs},
-    )
+    # print0(pcolor('DepthNet: %s' % config.name, 'yellow'))
+    # depth_net = load_class_args_create(config.name,
+    #     paths=['dro_sfm.networks.depth_pose',],
+    #     args=flownet_cfg,
+    # )
+
+    from dro_sfm.networks.depth_pose.DepthPoseNet import DepthPoseNet
+    depth_net = DepthPoseNet(flownet_cfg, version=config.version)
+
     if not prepared and config.checkpoint_path is not '':
         depth_net = load_network(depth_net, config.checkpoint_path,
                                  ['depth_net', 'disp_network'])
@@ -518,7 +522,7 @@ def setup_model(config, prepared, **kwargs):
     if model.network_requirements['depth_net']:
         config.depth_net.max_depth = config.params.max_depth
         config.depth_net.min_depth = config.params.min_depth
-        model.add_depth_net(setup_depth_net(config.depth_net, prepared))
+        model.add_depth_net(setup_depth_net(config.flow_net, config.depth_net, prepared))
     # Add pose network if required
     if model.network_requirements['pose_net']:
         model.add_pose_net(setup_pose_net(config.pose_net, prepared))

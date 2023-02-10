@@ -21,6 +21,9 @@ class Model_depth_pose(nn.Module):
 
         self.model_pose = Model_triangulate_pose(cfg)
 
+        state_dict = torch.load('weights/kitti_flow.pth')['model_state_dict']
+        self.load_state_dict(state_dict, strict=False)
+
     def meshgrid(self, h, w):
         xx, yy = np.meshgrid(np.arange(0,w), np.arange(0,h))
         meshgrid = np.transpose(np.stack([xx,yy], axis=-1), [2,0,1]) # [2,h,w]
@@ -60,7 +63,7 @@ class Model_depth_pose(nn.Module):
         select_pts = match[:,:,rand_int]
         return select_pts
     
-    def filt_negative_depth(self, point2d_1_depth, point2d_2_depth, point2d_1_coord, point2d_2_coord):
+    def  filt_negative_depth(self, point2d_1_depth, point2d_2_depth, point2d_1_coord, point2d_2_coord):
         # Filter out the negative projection depth.
         # point2d_1_depth: [b, n, 1]
         b, n = point2d_1_depth.shape[0], point2d_1_depth.shape[1]

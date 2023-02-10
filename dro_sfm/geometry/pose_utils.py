@@ -85,6 +85,15 @@ def pose_vec2mat(vec, mode='euler'):
     return mat
 
 ########################################################################################################################
+def pose_mat2vec(pose):
+    """Convert transformation matrix to Euler parameters."""
+    vec = torch.ones(pose.shape[0], 6, dtype=pose.dtype, device=pose.device)
+    vec[:, :3] = pose[:,:3,3]
+    vec[:, 3:] = mat2euler(pose[:,:3,:3])
+    return vec
+    
+########################################################################################################################
+
 
 def invert_pose(T):
     """Inverts a [B,4,4] torch.tensor pose"""

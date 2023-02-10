@@ -29,6 +29,25 @@ model:
         crop: ''
         min_depth: 0.001
         max_depth: 100.0
+    flow_net:
+        mode: "depth"
+        dataset: "blrnder"
+        num_scales: 2
+        depth_match_num: 6000
+        depth_sample_ratio: 0.20
+        depth_scale: 1
+        w_ssim: 0.85 # w_pixel = 1 - w_ssim
+        w_flow_smooth: 10.0
+        w_flow_consis: 0.01
+        w_geo: 1.0
+        w_pt_depth: 1.0
+        w_pj_depth: 0.1
+        w_flow_error: 0.0
+        w_depth_smooth: 0.001
+        h_flow_consist_alpha: 3.0
+        h_flow_consist_beta: 0.05
+        ransac_iters: 100
+        ransac_points: 6000
 datasets:
     augmentation:
         image_shape: (320, 320)
