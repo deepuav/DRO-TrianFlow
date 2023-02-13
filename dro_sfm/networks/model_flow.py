@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from layers.feature_pyramid import FeaturePyramid
 from layers.pwc_tf import PWC_tf
+from gmflow.gmflow import GMFlow
 from layers.net_utils import *
 from dro_sfm.utils.ssim import SSIM
 
@@ -155,12 +156,13 @@ class Model_flow(nn.Module):
     def __init__(self, cfg):
         super(Model_flow, self).__init__()
         # self.fpyramid = FeaturePyramid()
-        self.pwc_model = PWC_tf()
+        # self.pwc_model = PWC_tf()
+        self.gmflow_model = GMFlow()
         if cfg.mode == 'depth' or cfg.mode == 'flowposenet':
             # # Stage 2 training
             # for param in self.fpyramid.parameters():
             #     param.requires_grad = False
-            for param in self.pwc_model.parameters():
+            for param in self.gmflow_model.parameters():
                 param.requires_grad = False
         
         # hyperparameters
@@ -298,7 +300,8 @@ class Model_flow(nn.Module):
     def inference_flow(self, img1, img2):
         img_hw = [img1.shape[2], img1.shape[3]]
         feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flow = self.pwc_model(feature_list_1, feature_list_2, img_hw)[0]
+        # optical_flow = self.pwc_model(feature_list_1, feature_list_2, img_hw)[0]
+        optical_flow = self.gmflow_model(feature_list_1, feature_list_2)[-1]
         return optical_flow
     
     def inference_corres(self, img1, img2):
@@ -306,8 +309,10 @@ class Model_flow(nn.Module):
         
         # get the optical flows and reverse optical flows for each pair of adjacent images
         feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
-        optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        # optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
+        # optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        optical_flows = self.gmflow_model(feature_list_1, feature_list_2)
+        optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1)
 
         # get occlusion masks
         img2_visible_masks, img1_visible_masks = self.get_visible_masks(optical_flows, optical_flows_rev)
@@ -319,7 +324,7 @@ class Model_flow(nn.Module):
             img2_valid_masks.append(img2_visible_mask * img2_consis_mask)
             img1_valid_masks.append(img1_visible_mask * img1_consis_mask)
         
-        return optical_flows[0], optical_flows_rev[0], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
+        return optical_flows[-1], optical_flows_rev[-1], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
 
     def forward(self, inputs, features, output_flow=False, use_flow_loss=True):
         # 多尺度特征直接作为光流的输入
@@ -342,8 +347,10 @@ class Model_flow(nn.Module):
         #pdb.set_trace()
         # get the optical flows and reverse optical flows for each pair of adjacent images
         # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
-        optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        # optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
+        # optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        optical_flows = self.gmflow_model(feature_list_1, feature_list_2)
+        optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1)
         
         # TrainFlow 论文中的 occlusion mask Mo 和  forwar-backward flow consistency score map Ms
         # get occlusion masks
@@ -388,7 +395,7 @@ class Model_flow(nn.Module):
         #                   self.compute_loss_flow_consis(bwd_flow_diff_pyramid, img2_valid_masks)
         loss_pack['loss_flow_consis'] = torch.zeros([2]).to(img1.get_device()).requires_grad_()
         if output_flow:
-            return loss_pack, optical_flows[0], optical_flows_rev[0], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
+            return loss_pack, optical_flows[-1], optical_flows_rev[-1], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
         else:
             return loss_pack
 
