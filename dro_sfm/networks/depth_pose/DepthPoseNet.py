@@ -115,6 +115,20 @@ class DepthPoseNet(nn.Module):
         # cost = torch.stack(cost_list, dim=1).min(dim=1)[0]
         cost = torch.stack(cost_list, dim=1).mean(dim=1)
         return cost
+
+    def points2depthmap(self, H, W, coord, depth, ratio):
+        # 稀疏点深度恢复对应深度图
+        # coord [b, n, 2] 深度点对应坐标
+        # depth [b, n ,1] 三角化结果，所有深度点
+        # ratio 4 or 8, 缩小的比率
+        depth_map = torch.zeros(depth.shape[0], 1, int(H/ratio), int(W/ratio))
+        for batch in range(depth.shape[0]):
+            for n in range(depth.shape[1]):
+                h, w = (coord[batch, n, :] / ratio)[:]
+                depth_map[batch, 0, int(h), int(w)] = depth[batch, n, :]
+
+        return depth_map        
+
             
     def forward(self, target_image, ref_imgs, intrinsics):
         """ Estimate inv depth and  poses """
@@ -139,38 +153,32 @@ class DepthPoseNet(nn.Module):
         depth_list_init = []
         pose_list_init = []
         for ref_img, fmap_ref in zip(ref_imgs, fmaps_ref):
-            _, depth1, depth2, pose = self.depth_pose_head([target_image, ref_img, K, K_inv], [fmaps_target, fmap_ref])
+            _, coord1, depth1, pose = self.depth_pose_head([target_image, ref_img, K, K_inv], [fmaps_target, fmap_ref])
             depth_list_init.append(depth1)
             vec = pose_mat2vec(pose)
             pose_list_init.append(vec)
-            
-        # inv_depth_up_init = self.upsample_depth(inv_depth_init, up_mask, ratio=self.feat_ratio)
 
-        # TODO
-        # 三角变换出来的稀疏深度，尺度不确定，是否进行缩放待定 depth [b,n,1] -> [b, w, h]
-        inv_depth_init = torch.unsqueeze(depth_list_init[0], 1)
-        inv_depth_init = F.interpolate(inv_depth_init, size=(int(target_image.shape[2]/self.feat_ratio), int(target_image.shape[3]/self.feat_ratio)),\
-                                        mode='bilinear')
-        # depth_init = cv2.resize(inv_depth_init.cpu().detach().numpy(), (320,320))
-        # _target_image = np.transpose(target_image[0].cpu().numpy(), (1,2,0))
-        # cv2.imshow('img', _target_image)
-        # cv2.imshow('depth',depth_init)
+        # 三角变换出来的稀疏深度 inv_depth_init -> [b, 1, H/self.feat_ratio, W/self.feat_ratio]
+        inv_depth_init  = self.points2depthmap(target_image.shape[2], target_image.shape[3], coord1, depth1, self.feat_ratio)
 
+        # 深度图恢复原本W， H
         up_mask = self.upmask_net(fmaps_target[2])
         inv_depth_up_init = self.upsample_depth(inv_depth_init, up_mask, ratio=self.feat_ratio)
 
-
+        # 预测结果 list
         inv_depth_predictions = [self.scale_inv_depth(inv_depth_up_init)[0]]
         pose_predictions = [[pose.clone() for pose in pose_list_init]]
         
         
         # run the context network for optimization
         if self.iters > 0:
+            # 提取深度的隐藏特征和上下文特征
             cnet_depth = self.cnet_depth(target_image)        
             hidden_d, inp_d = torch.split(cnet_depth, [self.hdim, self.cdim], dim=1)
             hidden_d = torch.tanh(hidden_d)
             inp_d = torch.relu(inp_d)
             
+            # 提取位姿的隐藏特征和上下文特征
             cnet_pose_list = []
             for ref_img in ref_imgs:
                 cnet_pose_list.append( self.cnet_pose(torch.cat([target_image, ref_img], dim=1)))  
@@ -206,7 +214,6 @@ class DepthPoseNet(nn.Module):
                                       pose_list=pose_list, K=intrinsics,
                                       ref_K=intrinsics, scale_factor=1.0/self.feat_ratio)
 
-    
             #########  update depth ##########
             hidden_d, up_mask_seqs, inv_depth_seqs = self.update_block_depth(hidden_d, depth_cost_func,
                                                                              inv_depth, inp_d,

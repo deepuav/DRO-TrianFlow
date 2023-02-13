@@ -496,6 +496,6 @@ class Model_depth_pose(nn.Module):
         point2d_1_depth, point2d_2_depth, point2d_1_coord, point2d_2_coord, flag3 = self.filt_invalid_coord(point2d_1_depth, \
                 point2d_2_depth, point2d_1_coord, point2d_2_coord, max_h=img_h, max_w=img_w)
 
-        return loss_pack, point2d_1_depth, point2d_2_depth, Rt
+        return loss_pack, point2d_1_coord, point2d_1_depth, Rt
 
 
