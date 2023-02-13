@@ -29,7 +29,7 @@ class GMFlow(nn.Module):
         self.num_transformer_layers = num_transformer_layers
 
         # CNN backbone
-        self.backbone = CNNEncoder(output_dim=feature_channels, num_output_scales=num_scales)
+        # self.backbone = CNNEncoder(output_dim=feature_channels, num_output_scales=num_scales)
 
         # Transformer
         self.transformer = FeatureTransformer(num_layers=num_transformer_layers,
@@ -46,6 +46,9 @@ class GMFlow(nn.Module):
         self.upsampler = nn.Sequential(nn.Conv2d(2 + feature_channels, 256, 3, 1, 1),
                                        nn.ReLU(inplace=True),
                                        nn.Conv2d(256, upsample_factor ** 2 * 9, 1, 1, 0))
+
+        state_dict = torch.load("weights/gmflow_kitti-285701a8.pth")
+        self.load_state_dict(state_dict=state_dict, strict=False)
 
     def extract_feature(self, img0, img1):
         concat = torch.cat((img0, img1), dim=0)  # [2B, C, H, W]
@@ -89,7 +92,7 @@ class GMFlow(nn.Module):
 
         return up_flow
 
-    def forward(self, img0, img1,
+    def forward(self, feature0_list, feature1_list,
                 attn_splits_list=None,
                 corr_radius_list=None,
                 prop_radius_list=None,
@@ -100,10 +103,10 @@ class GMFlow(nn.Module):
         results_dict = {}
         flow_preds = []
 
-        img0, img1 = normalize_img(img0, img1)  # [B, 3, H, W]
+        # img0, img1 = normalize_img(img0, img1)  # [B, 3, H, W]
 
-        # resolution low to high
-        feature0_list, feature1_list = self.extract_feature(img0, img1)  # list of features
+        # # resolution low to high
+        # feature0_list, feature1_list = self.extract_feature(img0, img1)  # list of features
 
         flow = None
 
@@ -167,4 +170,4 @@ class GMFlow(nn.Module):
 
         results_dict.update({'flow_preds': flow_preds})
 
-        return flow_preds
+        return [flow_preds[-1]]

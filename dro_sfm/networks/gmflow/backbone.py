@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 from .trident_conv import MultiScaleTridentConv
 
@@ -40,6 +41,7 @@ class CNNEncoder(nn.Module):
     def __init__(self, output_dim=128,
                  norm_layer=nn.InstanceNorm2d,
                  num_output_scales=1,
+                 input_images = 1,
                  **kwargs,
                  ):
         super(CNNEncoder, self).__init__()
@@ -47,7 +49,7 @@ class CNNEncoder(nn.Module):
 
         feature_dims = [64, 96, 128]
 
-        self.conv1 = nn.Conv2d(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
+        self.conv1 = nn.Conv2d(3 * input_images, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
         self.norm1 = norm_layer(feature_dims[0])
         self.relu1 = nn.ReLU(inplace=True)
 
@@ -88,6 +90,19 @@ class CNNEncoder(nn.Module):
                     nn.init.constant_(m.weight, 1)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
+        state_dict = torch.load("weights/gmflow_kitti-285701a8.pth")['model']
+        self.state_dict = {}
+        for key, value in state_dict.items():
+            if 'backbone' in key:
+                str = key.split('backbone.')
+                if output_dim != 128 and 'conv2' in str[-1]:
+                    continue
+                self.state_dict[str[-1]] = value
+                   
+
+        self.state_dict['conv1.weight'] = torch.cat([self.state_dict['conv1.weight']] * input_images, 1) / input_images
+
+        self.load_state_dict(self.state_dict, strict=False)
 
     def _make_layer(self, dim, stride=1, dilation=1, norm_layer=nn.InstanceNorm2d):
         layer1 = ResidualBlock(self.in_planes, dim, norm_layer=norm_layer, stride=stride, dilation=dilation)

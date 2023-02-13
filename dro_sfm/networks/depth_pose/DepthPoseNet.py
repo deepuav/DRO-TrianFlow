@@ -15,6 +15,7 @@ from dro_sfm.utils.depth import inv2depth
 from dro_sfm.networks.layers.resnet.layers import disp_to_depth
 from dro_sfm.networks.model_depth_pose import Model_depth_pose
 from dro_sfm.networks.layers.feature_pyramid import FeaturePyramid
+from dro_sfm.networks.gmflow.backbone import CNNEncoder
 
                 
 class DepthPoseNet(nn.Module):
@@ -44,27 +45,33 @@ class DepthPoseNet(nn.Module):
             self.scale_inv_depth = lambda x: (x, None) # identity
         
         # feature network, context network, and update block
-        self.foutput_dim = 64
+        self.foutput_dim = 128
         self.feat_ratio = 8
         # TODO
         # 输出维度作为参数传入， 网络返回结果有该输出维度的特征
-        self.fnet = FeaturePyramid()
+        # self.fnet = FeaturePyramid()
+        self.fnet = CNNEncoder(output_dim= self.foutput_dim)
+
 
         self.depth_pose_head = Model_depth_pose(cfg)
 
         self.upmask_net = UpMaskNet(hidden_dim=self.foutput_dim, ratio=self.feat_ratio)
         
-        self.hdim = 64 
+        self.hdim = 128 
         self.cdim = 32
         
         self.update_block_depth = BasicUpdateBlockDepth(hidden_dim=self.hdim, cost_dim=self.foutput_dim, ratio=self.feat_ratio, context_dim=self.cdim)
         self.update_block_pose = BasicUpdateBlockPose(hidden_dim=self.hdim, cost_dim=self.foutput_dim, context_dim=self.cdim)
 
-        # self.cnet_depth = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=1)
-        # self.cnet_pose = ResNetEncoder(out_chs=self.hdim+self.cdim, stride=self.feat_ratio, num_input_images=2)
+        self.cnet_depth = CNNEncoder(output_dim = self.hdim+self.cdim)
+        self.cnet_pose = CNNEncoder(output_dim = self.hdim+self.cdim, input_images = 2)
 
-        self.cnet_depth = FeaturePyramid(self.hdim, out_chs=self.hdim+self.cdim)
-        self.cnet_pose = FeaturePyramid(self.hdim, out_chs=self.hdim+self.cdim, input_images=2)
+        for param in self.fnet.parameters():
+                param.requires_grad = False
+        for param in self.depth_pose_head.parameters():
+                param.requires_grad = False
+
+
 
 
     def upsample_depth(self, depth, mask, ratio=8):
@@ -121,10 +128,10 @@ class DepthPoseNet(nn.Module):
         # coord [b, n, 2] 深度点对应坐标
         # depth [b, n ,1] 三角化结果，所有深度点
         # ratio 4 or 8, 缩小的比率
-        depth_map = torch.zeros(depth.shape[0], 1, int(H/ratio), int(W/ratio))
+        depth_map = torch.zeros(depth.shape[0], 1, int(H/ratio), int(W/ratio), device=depth.device)
         for batch in range(depth.shape[0]):
             for n in range(depth.shape[1]):
-                h, w = (coord[batch, n, :] / ratio)[:]
+                h, w = torch.clamp((coord[batch, n, :] / ratio)[:], 0, 39 )
                 depth_map[batch, 0, int(h), int(w)] = depth[batch, n, :]
 
         return depth_map        
@@ -150,11 +157,9 @@ class DepthPoseNet(nn.Module):
 
 
         # 初始化深度和位姿
-        depth_list_init = []
         pose_list_init = []
         for ref_img, fmap_ref in zip(ref_imgs, fmaps_ref):
             _, coord1, depth1, pose = self.depth_pose_head([target_image, ref_img, K, K_inv], [fmaps_target, fmap_ref])
-            depth_list_init.append(depth1)
             vec = pose_mat2vec(pose)
             pose_list_init.append(vec)
 
@@ -162,7 +167,7 @@ class DepthPoseNet(nn.Module):
         inv_depth_init  = self.points2depthmap(target_image.shape[2], target_image.shape[3], coord1, depth1, self.feat_ratio)
 
         # 深度图恢复原本W， H
-        up_mask = self.upmask_net(fmaps_target[2])
+        up_mask = self.upmask_net(fmaps_target[0])
         inv_depth_up_init = self.upsample_depth(inv_depth_init, up_mask, ratio=self.feat_ratio)
 
         # 预测结果 list
@@ -173,7 +178,7 @@ class DepthPoseNet(nn.Module):
         # run the context network for optimization
         if self.iters > 0:
             # 提取深度的隐藏特征和上下文特征
-            cnet_depth = self.cnet_depth(target_image)        
+            cnet_depth = self.cnet_depth(target_image)[0]        
             hidden_d, inp_d = torch.split(cnet_depth, [self.hdim, self.cdim], dim=1)
             hidden_d = torch.tanh(hidden_d)
             inp_d = torch.relu(inp_d)
@@ -181,7 +186,7 @@ class DepthPoseNet(nn.Module):
             # 提取位姿的隐藏特征和上下文特征
             cnet_pose_list = []
             for ref_img in ref_imgs:
-                cnet_pose_list.append( self.cnet_pose(torch.cat([target_image, ref_img], dim=1)))  
+                cnet_pose_list.append( self.cnet_pose(torch.cat([target_image, ref_img], dim=1))[0])  
             hidden_p_list, inp_p_list = [], []
             for cnet_pose in cnet_pose_list:
                 hidden_p, inp_p = torch.split(cnet_pose, [self.hdim, self.cdim], dim=1)
@@ -191,10 +196,6 @@ class DepthPoseNet(nn.Module):
                 
         # optimization start.................
         # 特征提取金字塔网络提取的多尺度特征，提取输出维度 128特征
-        fmap1 = fmaps_target[2]
-        fmaps_ref1 = []
-        for fmap in fmaps_ref:
-            fmaps_ref1.append(fmap[2])
 
         pose_list = pose_list_init
         inv_depth = inv_depth_init
@@ -205,12 +206,12 @@ class DepthPoseNet(nn.Module):
 
             # calc cost
             pose_cost_func_list = []
-            for fmap_ref in fmaps_ref1:
-                pose_cost_func_list.append(partial(self.get_cost_each, fmap=fmap1, fmap_ref=fmap_ref,
+            for fmap_ref in fmaps_ref:
+                pose_cost_func_list.append(partial(self.get_cost_each, fmap=fmaps_target[0], fmap_ref=fmap_ref[0],
                                                    depth=inv2depth(self.scale_inv_depth(inv_depth)[0]),
                                                    K=intrinsics, ref_K=intrinsics, scale_factor=1.0/self.feat_ratio))
 
-            depth_cost_func = partial(self.depth_cost_calc, fmap=fmap1, fmaps_ref=fmaps_ref1,
+            depth_cost_func = partial(self.depth_cost_calc, fmap=fmaps_target[0], fmaps_ref=fmaps_ref[0],
                                       pose_list=pose_list, K=intrinsics,
                                       ref_K=intrinsics, scale_factor=1.0/self.feat_ratio)
 

@@ -52,7 +52,7 @@ datasets:
     augmentation:
         image_shape: (320, 320)
     train:
-        batch_size: 2
+        batch_size: 1
         dataset: ['Blender']
         path: ['E:/DataSet/blender/train']
         split: ['']

@@ -170,8 +170,6 @@ class Model_flow(nn.Module):
         self.num_scales = cfg.num_scales
         self.flow_consist_alpha = cfg.h_flow_consist_alpha
         self.flow_consist_beta = cfg.h_flow_consist_beta
-        # state_dict = torch.load('weights/kitti_flow.pth')
-        # self.load_state_dict(state_dict['model_pose.model_flow'], strict=False)
 
     def get_occlusion_mask_from_flow(self, tensor_size, flow):
         mask = torch.ones(tensor_size).to(flow.get_device())
@@ -349,8 +347,8 @@ class Model_flow(nn.Module):
         # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
         # optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
         # optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
-        optical_flows = self.gmflow_model(feature_list_1, feature_list_2)
-        optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1)
+        optical_flows = self.gmflow_model(feature_list_1, feature_list_2, [2], [-1], [-1])
+        optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1, [2], [-1], [-1])
         
         # TrainFlow 论文中的 occlusion mask Mo 和  forwar-backward flow consistency score map Ms
         # get occlusion masks
@@ -374,7 +372,7 @@ class Model_flow(nn.Module):
             loss_pack['loss_ssim'] = torch.zeros([2]).to(img1.get_device()).requires_grad_()
             loss_pack['loss_flow_smooth'] = torch.zeros([2]).to(img1.get_device()).requires_grad_()
             loss_pack['loss_flow_consis'] = torch.zeros([2]).to(img1.get_device()).requires_grad_()
-            return loss_pack, optical_flows[0], optical_flows_rev[0], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
+            return loss_pack, optical_flows[-1], optical_flows_rev[-1], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
 
         # warp images
         img1_pyramid = self.generate_img_pyramid(img1, len(optical_flows_rev))
