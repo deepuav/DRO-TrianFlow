@@ -52,7 +52,7 @@ datasets:
     augmentation:
         image_shape: (320, 960)
     train:
-        batch_size: 2
+        batch_size: 1
         dataset: ['KITTI']
         path: ['E:/DataSet/KITTI']
         split: ['E:/DataSet/KITTI/train.txt']
