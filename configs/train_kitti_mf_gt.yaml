@@ -29,30 +29,48 @@ model:
         crop: 'garg'
         min_depth: 0.2
         max_depth: 80.0
+    flow_net:
+        mode: "depth"
+        dataset: "KITTI"
+        num_scales: 2
+        depth_match_num: 6000
+        depth_sample_ratio: 0.20
+        depth_scale: 1
+        w_ssim: 0.85 # w_pixel = 1 - w_ssim
+        w_flow_smooth: 10.0
+        w_flow_consis: 0.01
+        w_geo: 1.0
+        w_pt_depth: 1.0
+        w_pj_depth: 0.1
+        w_flow_error: 0.0
+        w_depth_smooth: 0.001
+        h_flow_consist_alpha: 3.0
+        h_flow_consist_beta: 0.05
+        ransac_iters: 100
+        ransac_points: 6000
 datasets:
     augmentation:
         image_shape: (320, 960)
     train:
         batch_size: 2
         dataset: ['KITTI']
-        path: ['/data/datasets/kitti/KITTI_raw']
-        split: ['data_splits/eigen_zhou_files.txt']
-        depth_type: ['groundtruth']
+        path: ['E:/DataSet/KITTI']
+        split: ['E:/DataSet/KITTI/train.txt']
+        depth_type: ['velodyne_points']
         repeat: [2]
         forward_context: 1
         back_context: 1
     validation:
         dataset: ['KITTI']
-        path: ['/data/datasets/kitti/KITTI_raw']
-        split: ['data_splits/eigen_val_files.txt',
-                'data_splits/eigen_test_files.txt']
-        depth_type: ['groundtruth']
+        path: ['E:/DataSet/KITTI']
+        split: ['E:/DataSet/KITTI/val.txt']
+        depth_type: ['velodyne_points']
         forward_context: 1
         back_context: 0
     test:
         dataset: ['KITTI']
-        path: ['/data/datasets/kitti/KITTI_raw']
-        split: ['data_splits/eigen_test_files.txt']
-        depth_type: ['groundtruth']
+        path: ['E:/DataSet/KITTI']
+        split: ['E:/DataSet/KITTI/test.txt']
+        depth_type: ['velodyne_points']
         forward_context: 1
         back_context: 0

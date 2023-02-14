@@ -9,6 +9,7 @@ from dro_sfm.datasets.kitti_dataset_utils import \
     pose_from_oxts_packet, read_calib_file, transform_from_rot_trans
 from dro_sfm.utils.image import load_image
 from dro_sfm.geometry.pose_utils import invert_pose_numpy
+from dro_sfm.utils.export_gt_depth import generate_depth_map
 
 ########################################################################################################################
 
@@ -34,6 +35,11 @@ def read_npz_depth(file, depth_type):
     """Reads a .npz depth map given a certain depth_type."""
     depth = np.load(file)[depth_type + '_depth'].astype(np.float32)
     return np.expand_dims(depth, axis=2)
+
+def read_bin_depth(cam_folder, file):
+    """Reads 3D points , convert to depth map given a certain depth_type."""
+    depth_gt = generate_depth_map(cam_folder, file).astype(np.float32)
+    return depth_gt
 
 def read_png_depth(file):
     """Reads a .png depth map."""
@@ -161,12 +167,15 @@ class KITTIDataset(Dataset):
 #### DEPTH
 ########################################################################################################################
 
-    def _read_depth(self, depth_file):
+    def _read_depth(self, parent_folder, depth_file):
         """Get the depth map from a file."""
+        """parent_folder: 校准参数所在文件夹 """
         if self.depth_type in ['velodyne']:
             return read_npz_depth(depth_file, self.depth_type)
         elif self.depth_type in ['groundtruth']:
             return read_png_depth(depth_file)
+        elif self.depth_type in ['velodyne_points']:
+            return read_bin_depth(parent_folder, depth_file)
         else:
             raise NotImplementedError(
                 'Depth type {} not implemented'.format(self.depth_type))
@@ -176,10 +185,11 @@ class KITTIDataset(Dataset):
         for cam in ['left', 'right']:
             if IMAGE_FOLDER[cam] in image_file:
                 depth_file = image_file.replace(
-                    IMAGE_FOLDER[cam] + '/data', 'proj_depth/{}/{}'.format(
-                        self.depth_type, IMAGE_FOLDER[cam]))
+                    # IMAGE_FOLDER[cam] + '/data', 'proj_depth/{}/{}'.format(
+                    #     self.depth_type, IMAGE_FOLDER[cam]))
+                    IMAGE_FOLDER[cam], "velodyne_points")                      
                 if self.depth_type not in PNG_DEPTH_DATASETS:
-                    depth_file = depth_file.replace('png', 'npz')
+                    depth_file = depth_file.replace('png', 'bin')
                 return depth_file
 
     def _get_sample_context(self, sample_name,
@@ -374,7 +384,7 @@ class KITTIDataset(Dataset):
         # Add depth information if requested
         if self.with_depth:
             sample.update({
-                'depth': self._read_depth(self._get_depth_file(self.paths[idx])),
+                'depth': self._read_depth(parent_folder, self._get_depth_file(self.paths[idx])),
             })
 
         # Add context information if requested
