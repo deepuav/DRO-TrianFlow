@@ -54,23 +54,23 @@ datasets:
     train:
         batch_size: 1
         dataset: ['KITTI']
-        path: ['E:/DataSet/KITTI']
-        split: ['E:/DataSet/KITTI/train.txt']
-        depth_type: ['velodyne_points']
+        path: ['E:/DataSet/KITTI_row']
+        split: ['E:/DataSet/KITTI_row/train.txt']
+        depth_type: ['velodyne']
         repeat: [2]
         forward_context: 1
         back_context: 1
     validation:
         dataset: ['KITTI']
-        path: ['E:/DataSet/KITTI']
-        split: ['E:/DataSet/KITTI/val.txt']
-        depth_type: ['velodyne_points']
+        path: ['E:/DataSet/KITTI_row']
+        split: ['E:/DataSet/KITTI_row/val.txt']
+        depth_type: ['velodyne']
         forward_context: 1
         back_context: 0
     test:
         dataset: ['KITTI']
-        path: ['E:/DataSet/KITTI']
-        split: ['E:/DataSet/KITTI/test.txt']
-        depth_type: ['velodyne_points']
+        path: ['E:/DataSet/KITTI_row']
+        split: ['E:/DataSet/KITTI_row/test.txt']
+        depth_type: ['velodyne']
         forward_context: 1
         back_context: 0

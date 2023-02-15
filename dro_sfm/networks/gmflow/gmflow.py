@@ -170,4 +170,4 @@ class GMFlow(nn.Module):
 
         results_dict.update({'flow_preds': flow_preds})
 
-        return [flow_preds[-1]]
+        return [flow_preds[0]]
